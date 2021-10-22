@@ -20,6 +20,9 @@ all() ->
     [{group, tcp}, {group, ssl}].
     % [{group, tcp}].
 
+suite() ->
+  [{timetrap, {minutes, 1}}].
+
 groups() ->
     Cases = gen_rpc_test_helper:get_test_functions(?MODULE),
     % [{tcp, [], Cases}].
@@ -333,4 +336,3 @@ interleaved_call_executor(Num) when is_integer(Num) ->
 %% over TCP even on the SSL group
 get_config(?SLAVE) ->
   {tcp, ?SLAVE_PORT}.
-
