@@ -19,6 +19,9 @@
 all() ->
     gen_rpc_test_helper:get_test_functions(?MODULE).
 
+suite() ->
+  [{timetrap, {minutes, 1}}].
+
 init_per_suite(Config) ->
     %% Starting Distributed Erlang on local node
     {ok, _Pid} = gen_rpc_test_helper:start_distribution(?MASTER),
@@ -125,15 +128,13 @@ async_call_nb_yield_infinity(_Config) ->
 client_inactivity_timeout(_Config) ->
     {_Mega, _Sec, _Micro} = gen_rpc:call({?SLAVE,random_key}, os, timestamp),
     ok = timer:sleep(600),
-    ClientName = gen_rpc_helper:make_process_name("client", {?SLAVE,random_key}),
-    undefined = erlang:whereis(ClientName),
+    undefined = gen_rpc_client:where_is({?SLAVE, random_key}),
     [] = supervisor:which_children(gen_rpc_client_sup).
 
 server_inactivity_timeout(_Config) ->
     {_Mega1, _Sec1, _Micro1} = gen_rpc:call({?SLAVE,random_key}, os, timestamp),
     ok = timer:sleep(600),
-    ClientName = gen_rpc_helper:make_process_name("client", ?SLAVE),
-    undefined = erlang:whereis(ClientName),
+    undefined = gen_rpc_client:where_is(?SLAVE),
     [] = supervisor:which_children(gen_rpc_client_sup).
 
 random_local_tcp_close(_Config) ->

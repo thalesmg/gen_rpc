@@ -55,8 +55,8 @@ init([]) ->
 %% Simply launch a connection to a node through the appropriate
 %% supervisor. This is a serialization interface so that
 handle_call({start_client, NodeOrTuple}, _Caller, undefined) ->
-    PidName = gen_rpc_helper:make_process_name("client", NodeOrTuple),
-    Reply = case erlang:whereis(PidName) of
+    PidName = {client, NodeOrTuple},
+    Reply = case gen_rpc_registry:whereis_name(PidName) of
         undefined ->
             ?log(debug, "message=start_client event=starting_client_server target=\"~p\"", [NodeOrTuple]),
             gen_rpc_client_sup:start_child(NodeOrTuple);

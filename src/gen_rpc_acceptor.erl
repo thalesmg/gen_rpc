@@ -48,8 +48,8 @@
 %%% ===================================================
 -spec start_link(atom(), {inet:ip4_address(), inet:port_number()}) -> gen_statem:startlink_ret().
 start_link(Driver, Peer) when is_atom(Driver), is_tuple(Peer) ->
-    Name = gen_rpc_helper:make_process_name("acceptor", Peer),
-    gen_statem:start_link({local,Name}, ?MODULE, {Driver, Peer}, []).
+    Name = {acceptor, Peer},
+    gen_statem:start_link({via, gen_rpc_registry, Name}, ?MODULE, {Driver, Peer}, []).
 
 -spec stop(pid()) -> ok.
 stop(Pid) when is_pid(Pid) ->
@@ -136,12 +136,12 @@ waiting_for_data(info, {Driver,Socket,Data},
                         false ->
                             ?log(debug, "event=incompatible_module_version driver=~s socket=\"~s\" method=~s module=~s",
                                  [Driver, gen_rpc_helper:socket_to_string(Socket), CallType, RealM]),
-                            waiting_for_data(info, {CallType, Caller, {badrpc,incompatible}}, State)
+                            reply_immediately({CallType, Caller, {badrpc,incompatible}}, State)
                     end;
                 false ->
                     ?log(debug, "event=request_not_allowed driver=~s socket=\"~s\" control=~s method=~s module=~s",
                          [Driver, gen_rpc_helper:socket_to_string(Socket), Control, CallType, RealM]),
-                    waiting_for_data(info, {CallType, Caller, {badrpc,unauthorized}}, State)
+                    reply_immediately({CallType, Caller, {badrpc,unauthorized}}, State)
             end;
         {cast, _M, _F, _A} = Cast ->
             handle_cast(Cast, State),
@@ -166,15 +166,18 @@ waiting_for_data(info, {Driver,Socket,Data},
                     ?log(debug, "event=sbcast_received driver=~s socket=\"~s\" peer=\"~s\" process=~s message=\"~p\"",
                          [Driver, gen_rpc_helper:socket_to_string(Socket), gen_rpc_helper:peer_to_string(Peer), Name, Msg]),
                     case erlang:whereis(Name) of
-                        undefined -> error;
-                        Pid -> Msg = erlang:send(Pid, Msg), success
+                        undefined ->
+                            error;
+                        Pid ->
+                            erlang:send(Pid, Msg),
+                            success
                     end;
                 false ->
                     ?log(debug, "event=request_not_allowed driver=~s socket=\"~s\" control=~s method=~s",
                          [Driver, gen_rpc_helper:socket_to_string(Socket), Control, sbcast]),
                      error
             end,
-            waiting_for_data(info, {sbcast, Caller, Reply}, State);
+            reply_immediately({sbcast, Caller, Reply}, State);
         ping ->
             ?log(debug, "event=ping_received driver=~s socket=\"~s\" peer=\"~s\" action=ignore",
                  [Driver, gen_rpc_helper:socket_to_string(Socket), gen_rpc_helper:peer_to_string(Peer)]),
@@ -317,3 +320,7 @@ handle_cast(UnknownReq, #state{socket=Socket, driver=Driver, peer=Peer}) ->
          [Driver, gen_rpc_helper:socket_to_string(Socket),
           gen_rpc_helper:peer_to_string(Peer), UnknownReq]),
     error(invalid_cast_req).
+
+reply_immediately(Payload, #state{driver_mod = DriverMod, driver = Driver, socket = Socket}) ->
+    reply_call_result(Payload, Socket, Driver, DriverMod),
+    {keep_state_and_data, gen_rpc_helper:get_inactivity_timeout(?MODULE)}.

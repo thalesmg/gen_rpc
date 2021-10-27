@@ -19,6 +19,9 @@
 all() ->
     gen_rpc_test_helper:get_test_functions(?MODULE).
 
+suite() ->
+    [{timetrap, {minutes, 1}}].
+
 init_per_suite(Config) ->
     %% Starting Distributed Erlang on local node
     {ok, _Pid} = gen_rpc_test_helper:start_distribution(?MASTER),
@@ -214,7 +217,7 @@ sbcast(_Config) ->
     true = erlang:unregister(test_process_123).
 
 sbcast_with_bad_server(_Config) ->
-    true = erlang:register(test_process_123, self()),
+    true = register(test_process_123, self()),
     {[?MASTER], [?FAKE_NODE]} = rpc:call(?SLAVE, gen_rpc, sbcast, [[?MASTER, ?FAKE_NODE], test_process_123, this_is_a_test]),
     receive
         this_is_a_test -> ok;
