@@ -94,22 +94,23 @@ init([]) ->
 
 handle_call({register, Name, Pid}, _From, State = #{rlookup := RLookup}) ->
     %% Optimized for the happy case
+    MRef = monitor(process, Pid),
     Reply =
-        case ets:insert_new(?TAB, {Name, Pid}) of
+        case ets:insert_new(RLookup, {Pid, MRef, Name}) of
             true ->
-                MRef = monitor(process, Pid),
-                case ets:insert_new(RLookup, {Pid, MRef, Name}) of
+                case ets:insert_new(?TAB, {Name, Pid}) of
                     true ->
                         yes;
                     false ->
-                        %% The pid has been already registered with a
-                        %% different name. This is invalid, so
-                        %% rollback the changes:
-                        ets:delete(?TAB, Name),
+                        %% The name has been already registered to a
+                        %% different pid. This is invalid, so rollback
+                        %% the changes:
+                        ets:delete(RLookup, Pid),
                         demonitor(MRef, [flush]),
                         no
                 end;
             false ->
+                demonitor(MRef, [flush]),
                 no
         end,
     {reply, Reply, State};
