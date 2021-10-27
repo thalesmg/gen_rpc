@@ -125,7 +125,6 @@ store_driver_in_config(Driver, State) ->
 
 restart_application() ->
     _ = application:stop(?APP),
-    %% _ = application:unload(?APP),
     ok = timer:sleep(100),
     {ok, _Apps} = application:ensure_all_started(?APP),
     ok.
@@ -159,10 +158,6 @@ get_driver_from_config(Config) ->
         false -> ?DEFAULT_DRIVER;
         {driver, Driver} -> Driver
     end.
-
-make_process_name(Node, Tag) when is_binary(Tag) ->
-    NodeBin = atom_to_binary(Node, utf8),
-    binary_to_atom(<<Tag/binary, NodeBin/binary>>, utf8).
 
 spawn_long_running(TimeSpan) ->
     spawn(fun() -> timer:sleep(TimeSpan) end).

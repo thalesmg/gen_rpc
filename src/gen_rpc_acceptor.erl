@@ -169,7 +169,7 @@ waiting_for_data(info, {Driver,Socket,Data},
                         undefined ->
                             error;
                         Pid ->
-                            Msg = erlang:send(Pid, Msg),
+                            erlang:send(Pid, Msg),
                             success
                     end;
                 false ->
