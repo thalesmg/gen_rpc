@@ -229,6 +229,10 @@ sbcast(Nodes, Name, Msg) when is_list(Nodes), is_atom(Name) ->
     Workers = [{erlang:spawn(?MODULE, cast_worker, [Node, {sbcast, Name, Msg, {self(), Ref, Node}}, undefined, undefined]), Node} || Node <- Nodes],
     parse_sbcast_results(Workers, Ref).
 
+-spec where_is(node_or_tuple()) -> pid() | undefined.
+where_is(NodeOrTuple) ->
+    gen_rpc_registry:whereis_name(?NAME(NodeOrTuple)).
+
 %%% ===================================================
 %%% Behaviour callbacks
 %%% ===================================================
@@ -410,13 +414,6 @@ code_change(_OldVsn, State, _Extra) ->
 terminate(_Reason, #state{keepalive=KeepAlive}) ->
     gen_rpc_keepalive:cancel(KeepAlive),
     ok.
-
-%%% ===================================================
-%%% Private functions
-%%% ===================================================
--spec where_is(node_or_tuple()) -> pid() | undefined.
-where_is(NodeOrTuple) ->
-    gen_rpc_registry:whereis_name(?NAME(NodeOrTuple)).
 
 %%% ===================================================
 %%% Private functions

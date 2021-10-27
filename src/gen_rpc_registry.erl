@@ -18,8 +18,7 @@
              ]).
 
 %% gen_server callbacks
--export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
 
@@ -50,11 +49,11 @@ nodes() ->
 
 -spec register_name(term(), pid()) -> yes | no.
 register_name(Name, Pid) ->
-    gen_server:call(?SERVER, {register, Name, Pid}).
+    gen_server:call(?SERVER, {register, Name, Pid}, infinity).
 
 -spec unregister_name(term()) -> ok.
 unregister_name(Name) ->
-    gen_server:call(?SERVER, {unregister, Name}).
+    gen_server:call(?SERVER, {unregister, Name}, infinity).
 
 -spec whereis_name(term()) -> pid() | undefined.
 whereis_name(Name) ->
@@ -94,12 +93,22 @@ init([]) ->
     {ok, #{rlookup => RLookup}}.
 
 handle_call({register, Name, Pid}, _From, State = #{rlookup := RLookup}) ->
+    %% Optimized for the happy case
     Reply =
         case ets:insert_new(?TAB, {Name, Pid}) of
             true ->
                 MRef = monitor(process, Pid),
-                ets:insert(RLookup, {Pid, MRef, Name}),
-                yes;
+                case ets:insert_new(RLookup, {Pid, MRef, Name}) of
+                    true ->
+                        yes;
+                    false ->
+                        %% The pid has been already registered with a
+                        %% different name. This is invalid, so
+                        %% rollback the changes:
+                        ets:delete(?TAB, Name),
+                        demonitor(MRef, [flush]),
+                        no
+                end;
             false ->
                 no
         end,
@@ -132,9 +141,6 @@ handle_info({'DOWN', _MonitorRef, _Type, Pid, _Info}, State = #{rlookup := RLook
     {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
-
-terminate(_Reason, _State) ->
-    ok.
 
 %%%===================================================================
 %%% Internal functions
