@@ -93,7 +93,7 @@ call_module_version_check_success(_Config) ->
 call_module_version_check_incompatible(_Config) ->
     {badrpc, incompatible} = gen_rpc:call(?SLAVE, {gen_rpc_test_helper, "X.Y.Z"}, stub_function, []).
 
-all_module_version_check_invalid(_Config) ->
+call_module_version_check_invalid(_Config) ->
     {badrpc, incompatible} = gen_rpc:call(?SLAVE, {gen_rpc_test_helper1, "X.Y.Z"}, stub_function, []),
     {badrpc, incompatible} = gen_rpc:call(?SLAVE, {rpc, 1}, cast, []).
 
