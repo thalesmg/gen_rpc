@@ -136,7 +136,7 @@ cast(NodeOrTuple, M, F, A) ->
 -spec cast(node_or_tuple(), atom() | tuple(), atom() | function(), list(), timeout() | undefined) -> true.
 cast(NodeOrTuple, M, F, A, SendTO) when ?is_node_or_tuple(NodeOrTuple), is_atom(M) orelse is_tuple(M), is_atom(F), is_list(A),
                                  SendTO =:= undefined orelse ?is_timeout(SendTO) ->
-    _WorkerPid = erlang:spawn(?MODULE, cast_worker, [NodeOrTuple, {cast,M,F,A}, undefined, SendTO]),
+    cast_worker(NodeOrTuple, {cast, M, F, A}, undefined, SendTO),
     true.
 
 %% Evaluate {M, F, A} on connected nodes.
@@ -464,14 +464,14 @@ cast_worker(NodeOrTuple, Cast, Ret, SendTO) ->
                     %% We take care of CALL inside the gen_server
                     %% This is not resilient enough if the caller's mailbox is full
                     %% but it's good enough for now
-                    erlang:send(NewPid, {Cast,SendTO}),
+                    erlang:send(NewPid, {Cast, SendTO}),
                     Ret;
                 {error, _Reason} ->
                     Ret
             end;
         Pid ->
             ?log(debug, "event=client_process_found pid=\"~p\" target=\"~p\"", [Pid, NodeOrTuple]),
-            erlang:send(Pid, {Cast,SendTO}),
+            erlang:send(Pid, {Cast, SendTO}),
             Ret
     end.
 
