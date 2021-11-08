@@ -17,16 +17,14 @@
 %%% CT callback functions
 %%% ===================================================
 all() ->
-    %% [{group, tcp}, {group, ssl}]. %% FIXME: SSL is currently broken, but we don't use it
-    [{group, tcp}].
+    [{group, tcp}, {group, ssl}].
 
 suite() ->
     [{timetrap, {minutes, 1}}].
 
 groups() ->
     Cases = gen_rpc_test_helper:get_test_functions(?MODULE),
-    %% [{tcp, [], Cases}, {ssl, [], Cases}]. %% FIXME: SSL is currently broken, but we don't use it
-    [{tcp, [], Cases}].
+    [{tcp, [], Cases}, {ssl, [], Cases}].
 
 init_per_group(Group, Config) ->
     % Our group name is the name of the driver

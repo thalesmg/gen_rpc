@@ -3,7 +3,7 @@
 -compile(export_all).
 -compile(nowarn_export_all).
 
--include("../include/ct.hrl").
+-include("include/ct.hrl").
 
 %% Loop in order to receive all messages from all workers
 interleaved_call_loop(Pid1, Pid2, Pid3, Num) when Num < 3 ->
