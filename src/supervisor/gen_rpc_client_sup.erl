@@ -10,7 +10,7 @@
 %%% Behaviour
 -behaviour(supervisor).
 
-%%% Include the HUT library
+-include_lib("snabbkaffe/include/trace.hrl").
 -include("logger.hrl").
 %%% Include helpful guard macros
 -include("guards.hrl").
@@ -35,10 +35,11 @@ start_link() ->
 
 -spec start_child(node_or_tuple()) -> supervisor:startchild_ret().
 start_child(NodeOrTuple) when ?is_node_or_tuple(NodeOrTuple) ->
-    ?log(debug, "event=starting_new_client target=\"~p\"", [NodeOrTuple]),
+    ?tp(debug, gen_rpc_starting_new_client, #{target => NodeOrTuple}),
     case supervisor:start_child(?MODULE, [NodeOrTuple]) of
         {error, {already_started, CPid}} ->
             %% If we've already started the child, terminate it and start anew
+            ?tp(warning, gen_rpc_restarting_client, #{target => NodeOrTuple, old_client => CPid}),
             ok = stop_child(CPid),
             supervisor:start_child(?MODULE, [NodeOrTuple]);
         {error, OtherError} ->
@@ -49,7 +50,7 @@ start_child(NodeOrTuple) when ?is_node_or_tuple(NodeOrTuple) ->
 
 -spec stop_child(pid()) -> ok.
 stop_child(Pid) when is_pid(Pid) ->
-    ?log(debug, "event=stopping_client client_pid=\"~p\"", [Pid]),
+    ?tp(debug, gen_rpc_stopping_client, #{client_pid => Pid}),
     _ = supervisor:terminate_child(?MODULE, Pid),
     ok.
 

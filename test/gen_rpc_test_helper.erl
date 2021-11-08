@@ -9,6 +9,7 @@
 
 %%% CT Macros
 -include_lib("test/include/ct.hrl").
+-include_lib("snabbkaffe/include/snabbkaffe.hrl").
 
 %%% Public API
 -export([start_distribution/1,
@@ -23,8 +24,8 @@
         spawn_long_running/1,
         spawn_short_running/0,
         stub_function/0,
-        debug/0,
-        ping/1]).
+        ping/1,
+        test_call/1]).
 
 %%% ===================================================
 %%% Public API
@@ -61,8 +62,7 @@ start_slave(Driver) ->
     ok = set_driver_configuration(Driver, ?SLAVE),
     %% Start the application remotely
     {ok, _SlaveApps} = rpc:call(?SLAVE, application, ensure_all_started, [?APP]),
-    %% debug(),
-    %% rpc:call(?SLAVE, ?MODULE, debug, []),
+    snabbkaffe:forward_trace(?SLAVE),
     ok.
 
 stop_slave() ->
@@ -174,8 +174,5 @@ stub_function() ->
 ping({Node, Process, Msg}) ->
     {Process, Node} ! {pong, {node(), Process, Msg}}.
 
-debug() ->
-    dbg:tracer(),
-    dbg:p(all, c),
-    %dbg:tpl(gen_rpc, [{'_',[],[{return_trace}]}]),
-    dbg:tpl(gen_rpc_driver_ssl, [{'_',[],[{return_trace}]}]).
+test_call(SeqNo) ->
+    ?tp(do_test_call, #{seqno => SeqNo}).
