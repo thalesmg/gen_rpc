@@ -5,6 +5,7 @@
 %% API
 -export([ start_link/0
         , nodes/0
+        , all_processes/1
         ]).
 
 %% via callbacks
@@ -46,6 +47,14 @@ nodes() ->
                  ets:fun2ms(fun({{client, {Node, _}}, _}) when Node =/= ThisNode -> Node;
                                ({{client, Node}, _})      when Node =/= ThisNode -> Node
                             end))).
+
+
+-spec all_processes(_Tag) -> [{_Key, pid()}].
+all_processes(Tag) ->
+    ets:select(?TAB,
+               ets:fun2ms(fun({{T, Key}, Pid}) when T =:= Tag ->
+                                  {Key, Pid}
+                          end)).
 
 -spec register_name(term(), pid()) -> yes | no.
 register_name(Name, Pid) ->

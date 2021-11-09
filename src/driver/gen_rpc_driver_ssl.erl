@@ -12,7 +12,7 @@
 %%% Behaviour
 -behaviour(gen_rpc_driver).
 
-%%% Include the HUT library
+-include_lib("snabbkaffe/include/trace.hrl").
 -include("logger.hrl").
 %%% Include this library's name macro
 -include("app.hrl").
@@ -74,21 +74,28 @@ accept(Socket) when is_tuple(Socket) ->
 
 -spec send(ssl:sslsocket(), binary()) -> ok | {error, term()}.
 send(Socket, Data) when is_tuple(Socket), is_binary(Data) ->
+    ?tp(gen_rpc_driver_send, #{data => Data, driver => ssl}),
     case ssl:send(Socket, Data) of
         {error, timeout} ->
-            ?log(error, "event=send_data_failed socket=\"~s\" reason=\"timeout\"", [gen_rpc_helper:socket_to_string(Socket)]),
+            ?tp(error, gen_rpc_error, #{ error  => send_data_failed
+                                       , socket => gen_rpc_helper:socket_to_string(Socket)
+                                       , reason => timeout
+                                       }),
             {error, {badtcp,send_timeout}};
         {error, Reason} ->
-            ?log(error, "event=send_data_failed socket=\"~s\" reason=\"~p\"", [gen_rpc_helper:socket_to_string(Socket), Reason]),
-            {error, {badtcp,Reason}};
+            ?tp(error, gen_rpc_error, #{ error  => send_data_failed
+                                       , socket => gen_rpc_helper:socket_to_string(Socket)
+                                       , reason => Reason
+                                       }),
+            {error, {badtcp, Reason}};
         ok ->
-            ?log(debug, "event=send_data_succeeded socket=\"~s\"", [gen_rpc_helper:socket_to_string(Socket)]),
+            ?tp(gen_rpc_driver_send_ok, #{driver => ssl}),
             ok
     end.
 
 -spec activate_socket(ssl:sslsocket()) -> ok | {error, inet:posix()}.
 activate_socket(Socket) when is_tuple(Socket) ->
-    ssl:setopts(Socket, [{active, once}]).
+    ssl:setopts(Socket, [{active, true}]).
 
 %% Authenticate to a server
 -spec authenticate_server(ssl:sslsocket()) -> ok | {error, {badtcp | badrpc, term()}}.
@@ -252,3 +259,10 @@ set_socket_keepalive({unix, linux}, Socket) ->
 
 set_socket_keepalive(_Unsupported, _Socket) ->
     ok.
+
+%% Dump session keys for wireshark. To enable this feature, add
+%% `{keep_secrets, true}' to `SSL_DEFAULT_COMMON_OPTS' macro
+%% dump_keys(Socket) ->
+%%     {ok, [{keylog, Keylog}]} = ssl:connection_information(Socket, [keylog]),
+%%     IOList = [[I, $\n] || I <- Keylog],
+%%     file:write_file("/tmp/keydump", IOList, [append]).

@@ -9,6 +9,8 @@
 
 %%% CT Macros
 -include_lib("test/include/ct.hrl").
+-include_lib("snabbkaffe/include/snabbkaffe.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %%% No need to export anything, everything is automatically exported
 %%% as part of the test profile
@@ -17,16 +19,14 @@
 %%% CT callback functions
 %%% ===================================================
 all() ->
-    %% [{group, tcp}, {group, ssl}]. %% FIXME: SSL is currently broken, but we don't use it
-    [{group, tcp}].
+    [{group, tcp}, {group, ssl}].
 
 suite() ->
     [{timetrap, {minutes, 1}}].
 
 groups() ->
     Cases = gen_rpc_test_helper:get_test_functions(?MODULE),
-    %% [{tcp, [], Cases}, {ssl, [], Cases}]. %% FIXME: SSL is currently broken, but we don't use it
-    [{tcp, [], Cases}].
+    [{tcp, [], Cases}, {ssl, [], Cases}].
 
 init_per_group(Group, Config) ->
     % Our group name is the name of the driver
@@ -254,6 +254,51 @@ wrong_cookie(_Config) ->
     true = erlang:set_cookie(node(), RandCookie),
     {badrpc, invalid_cookie} = gen_rpc:call(?SLAVE, os, timestamp, []),
     true = erlang:set_cookie(node(), OrigCookie).
+
+multiple_casts_test(_Config) ->
+    %% Send multiple casts and check that they are received in order
+    N = 10000,
+    L = [integer_to_binary(L) || L <- lists:seq(12000, 12000 + N)],
+    Last = lists:last(L),
+    ?check_trace(
+       begin
+           ?wait_async_action( [begin
+                                    ?tp(test_cast, #{seqno => I}),
+                                    true = gen_rpc:cast({?SLAVE, 1}, gen_rpc_test_helper, test_call, [I])
+                                end || I <- L]
+                             , #{?snk_kind := do_test_call, seqno := Last}
+                             ),
+           ok
+       end,
+       fun(_Ret, Trace) ->
+               %% 1. Check that all casts were received by a local client process before sending over net:
+               ?assert(
+                  ?strict_causality( #{?snk_kind := test_cast, seqno := _SeqNo}
+                                   , #{?snk_kind := gen_rpc_cast, cast := {cast, gen_rpc_test_helper, test_call, [_SeqNo]}}
+                                   , Trace
+                                   )),
+               ?assert(
+                  ?strict_causality( #{?snk_kind := gen_rpc_cast,      cast   := _Cast, sendto := _SendTo}
+                                   , #{?snk_kind := gen_rpc_send_cast, packet := _Cast, sendto := _SendTo}
+                                   , Trace
+                                   )),
+               %% 2. Check that no message reordering occurs on the client side:
+               snabbkaffe:strictly_increasing(?projection(packet, ?of_kind(gen_rpc_send_cast, Trace))),
+               %% 3. Check that no errors were detected:
+               ?assertMatch([], ?of_kind(gen_rpc_error, Trace)),
+               %% 4. Check delivery of the messages:
+               ?assert(
+                  ?strict_causality( #{?snk_kind := gen_rpc_send_cast, packet := _Packet}
+                                   , #{?snk_kind := gen_rpc_acceptor_receive, packet := _Packet}
+                                   , Trace
+                                   )),
+               %% 5. Check that all the messages were delivered:
+               Calls = ?of_kind(do_test_call, Trace),
+               ?projection_complete(seqno, Calls, L),
+               %% 6. Check that all calls are executed in order:
+               %% snabbkaffe:strictly_increasing(Calls), %% FIXME: Fails due to bug
+               true
+       end).
 
 %%% ===================================================
 %%% Auxiliary functions for test cases
