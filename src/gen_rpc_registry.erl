@@ -88,12 +88,12 @@ send(Name, Msg) ->
 
 -spec init([]) -> {ok, state()}.
 init([]) ->
-    ets:new(?TAB, [ named_table
-                  , protected
-                  , set
-                  , {read_concurrency, true}
-                  , {write_concurrency, false}
-                  ]),
+    ?TAB = ets:new(?TAB, [ named_table
+			 , protected
+			 , set
+			 , {read_concurrency, true}
+			 , {write_concurrency, false}
+			 ]),
     RLookup = ets:new(rlookup, [ set
                                , private
                                , {read_concurrency, false}

@@ -149,10 +149,10 @@ waiting_for_data(info, {Driver,Socket,Data},
                     reply_immediately({CallType, Caller, {badrpc,unauthorized}}, State)
             end;
         {cast, _M, _F, _A} = Cast ->
-            handle_cast(Cast, State),
+            _ = handle_cast(Cast, State),
             {keep_state_and_data, gen_rpc_helper:get_inactivity_timeout(?MODULE)};
         BatchCast when is_list(BatchCast) ->
-            [handle_cast(Cast, State) || Cast <- BatchCast],
+            _ = [handle_cast(Cast, State) || Cast <- BatchCast],
             {keep_state_and_data, gen_rpc_helper:get_inactivity_timeout(?MODULE)};
         {abcast, Name, Msg} ->
             _Result = case check_if_module_allowed(erlang, Control, List) of
