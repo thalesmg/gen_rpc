@@ -87,15 +87,9 @@ set_driver_configuration(ssl, ?MASTER) ->
     CaFile = filename:join([Prefix, "priv", "ssl", "ca.cert.pem"]),
     ok = application:set_env(?APP, default_client_driver, ssl, [{persistent, true}]),
     ok = application:set_env(?APP, ssl_server_port, ?MASTER_PORT, [{persistent, true}]),
-    ok = application:set_env(?APP, ssl_server_options, [
-                             {certfile, CertFile ++ ".cert.pem"},
-                             {keyfile, CertFile ++ ".key.pem"},
-                             {cacertfile, CaFile}], [{persistent, true}]),
-    ok = application:set_env(?APP, ssl_client_options, [
-                             {certfile, CertFile ++ ".cert.pem"},
-                             {keyfile, CertFile ++ ".key.pem"},
-                             {cacertfile, CaFile}], [{persistent, true}]),
-    ok;
+    ok = application:set_env(?APP, certfile, CertFile ++ ".cert.pem", [{persistent, true}]),
+    ok = application:set_env(?APP, keyfile, CertFile ++ ".key.pem", [{persistent, true}]),
+    ok = application:set_env(?APP, cacertfile, CaFile, [{persistent, true}]);
 
 set_driver_configuration(ssl, ?SLAVE) ->
     Prefix = filename:join(["..", "..", ".."]),

@@ -214,13 +214,17 @@ getstat(Socket, OptNames) ->
 %%% ===================================================
 merge_ssl_options(client) ->
     {ok, ExtraOpts} = application:get_env(?APP, ssl_client_options),
-    DefaultOpts = lists:append(?SSL_DEFAULT_COMMON_OPTS, ?SSL_DEFAULT_CLIENT_OPTS),
+    DefaultOpts = ?SSL_DEFAULT_COMMON_OPTS ++ ?SSL_DEFAULT_CLIENT_OPTS ++ get_cert_options(),
     gen_rpc_helper:merge_sockopt_lists(ExtraOpts, DefaultOpts);
 
 merge_ssl_options(server) ->
     {ok, ExtraOpts} = application:get_env(?APP, ssl_server_options),
-    DefaultOpts = lists:append(?SSL_DEFAULT_COMMON_OPTS, ?SSL_DEFAULT_SERVER_OPTS),
+    DefaultOpts = ?SSL_DEFAULT_COMMON_OPTS ++ ?SSL_DEFAULT_SERVER_OPTS ++ get_cert_options(),
     gen_rpc_helper:merge_sockopt_lists(ExtraOpts, DefaultOpts).
+
+get_cert_options() ->
+    [{Key, Val} || Key <- [certfile, keyfile, cacertfile],
+                   {ok, Val} <- [application:get_env(?APP, Key)]].
 
 set_socket_keepalive({unix, darwin}, Socket) ->
     {ok, KeepIdle} = application:get_env(?APP, socket_keepalive_idle),

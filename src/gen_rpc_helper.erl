@@ -94,13 +94,19 @@ merge_sockopt_lists(List1, List2) ->
 
 -spec is_driver_enabled(atom()) -> boolean().
 is_driver_enabled(Driver) when is_atom(Driver) ->
-    DriverStr = erlang:atom_to_list(Driver),
-    Setting = erlang:list_to_atom(DriverStr ++ "_server_port"),
-    case application:get_env(?APP, Setting) of
-        {ok, false} ->
+    case application:get_env(?APP, driver) of
+        {ok, OtherDriver} when OtherDriver =/= Driver ->
+            %% Driver is set explicitly, and it's a different one:
             false;
-        {ok, _Port} ->
-            true
+        _ ->
+            %% Either the driver is not set, or the settings match:
+            Setting = erlang:list_to_atom(lists:concat([Driver, "_server_port"])),
+            case application:get_env(?APP, Setting) of
+                {ok, false} ->
+                    false;
+                {ok, _Port} ->
+                    true
+            end
     end.
 
 -spec get_server_driver_options(atom()) -> tuple().

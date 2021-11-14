@@ -7,6 +7,8 @@
 -module(remote_SUITE).
 -author("Panagiotis Papadomitsos <pj@ezgr.net>").
 
+-compile([nowarn_underscore_match]).
+
 %%% CT Macros
 -include_lib("test/include/ct.hrl").
 -include_lib("snabbkaffe/include/snabbkaffe.hrl").
