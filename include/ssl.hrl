@@ -22,7 +22,8 @@
          , {secure_renegotiate,true}
          , {reuse_sessions,true}
          , {versions,['tlsv1.2','tlsv1.1']}
-         , {verify,verify_peer}
+         , {verify, verify_peer}
+         , {fail_if_no_peer_cert, true}
          %%, {keep_secrets, true} % debug only
          ] ++ ?TCP_DEFAULT_OPTS)).
 

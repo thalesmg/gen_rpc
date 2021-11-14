@@ -46,7 +46,7 @@
 connect(Node, Port) when is_atom(Node) ->
     Host = gen_rpc_helper:host_from_node(Node),
     ConnTO = gen_rpc_helper:get_connect_timeout(),
-    SslOpts = merge_ssl_options(client, Node),
+    SslOpts = merge_ssl_options(client),
     case ssl:connect(Host, Port, SslOpts ++ gen_rpc_helper:get_user_tcp_opts(), ConnTO) of
         {ok, Socket} ->
             ?log(debug, "event=connect_to_remote_server peer=\"~s\" socket=\"~s\" result=success",
@@ -60,7 +60,7 @@ connect(Node, Port) when is_atom(Node) ->
 
 -spec listen(inet:port_number()) -> {ok, ssl:sslsocket()} | {error, term()}.
 listen(Port) when is_integer(Port) ->
-    SslOpts = merge_ssl_options(server, undefined),
+    SslOpts = merge_ssl_options(server),
     ssl:listen(Port, SslOpts ++ gen_rpc_helper:get_user_tcp_opts()).
 
 -spec accept(ssl:sslsocket()) -> {ok, ssl:sslsocket()} | {error, term()}.
@@ -143,18 +143,9 @@ authenticate_server(Socket) ->
 authenticate_client(Socket, Peer, Data) ->
     Cookie = erlang:get_cookie(),
     try erlang:binary_to_term(Data) of
-        {gen_rpc_authenticate_connection, Node, Cookie} ->
-            PeerCert = extract_peer_certificate(Socket),
-            {SocketResponse, AuthResult} = case ssl_verify_hostname:verify_cert_hostname(PeerCert, Node) of
-                {fail, AuthReason} ->
-                    ?log(error, "event=node_certificate_mismatch socket=\"~s\" peer=\"~s\" reason=\"~p\"",
-                         [gen_rpc_helper:socket_to_string(Socket), gen_rpc_helper:peer_to_string(Peer), AuthReason]),
-                    {{gen_rpc_connection_rejected,node_certificate_mismatch}, {error,{badrpc,node_certificate_mismatch}}};
-                {valid, _Hostname} ->
-                    ?log(debug, "event=certificate_validated socket=\"~s\" peer=\"~s\"",
-                         [gen_rpc_helper:socket_to_string(Socket), gen_rpc_helper:peer_to_string(Peer)]),
-                    {gen_rpc_connection_authenticated, ok}
-            end,
+        {gen_rpc_authenticate_connection, _Node, Cookie} -> %% Old and insecure way to authenticate peers
+            AuthResult = ok,
+            SocketResponse = gen_rpc_connection_authenticated,
             Packet = erlang:term_to_binary(SocketResponse),
             case send(Socket, Packet) of
                 {error, Reason} ->
@@ -221,21 +212,15 @@ getstat(Socket, OptNames) ->
 %%% ===================================================
 %%% Private functions
 %%% ===================================================
-merge_ssl_options(client, Node) ->
+merge_ssl_options(client) ->
     {ok, ExtraOpts} = application:get_env(?APP, ssl_client_options),
-    NodeStr = atom_to_list(Node),
     DefaultOpts = lists:append(?SSL_DEFAULT_COMMON_OPTS, ?SSL_DEFAULT_CLIENT_OPTS),
-    VerifyOpts = [{verify_fun, {fun ssl_verify_hostname:verify_fun/3,[{check_hostname,NodeStr}]}}|DefaultOpts],
-    gen_rpc_helper:merge_sockopt_lists(ExtraOpts, VerifyOpts);
+    gen_rpc_helper:merge_sockopt_lists(ExtraOpts, DefaultOpts);
 
-merge_ssl_options(server, _Node) ->
+merge_ssl_options(server) ->
     {ok, ExtraOpts} = application:get_env(?APP, ssl_server_options),
     DefaultOpts = lists:append(?SSL_DEFAULT_COMMON_OPTS, ?SSL_DEFAULT_SERVER_OPTS),
     gen_rpc_helper:merge_sockopt_lists(ExtraOpts, DefaultOpts).
-
-extract_peer_certificate(Socket) ->
-    {ok, Cert} = ssl:peercert(Socket),
-    public_key:pkix_decode_cert(Cert, otp).
 
 set_socket_keepalive({unix, darwin}, Socket) ->
     {ok, KeepIdle} = application:get_env(?APP, socket_keepalive_idle),
